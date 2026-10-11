@@ -1,6 +1,4 @@
--- If it's a URL, paste it here (e.g. "https://..."). Leave "" if using SCRIPT_CODE below.
-
-local SCRIPT_CODE = [[-- ============================================================
+ ============================================================
 -- LEOLEO.FUN — SETUP INTELIGENTE
 -- Scan 8x/seg por 10s → depois só eventos (CPU ~0)
 -- ============================================================
