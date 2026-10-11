@@ -1,8 +1,7 @@
- ============================================================
--- LEOLEO.FUN — SETUP INTELIGENTE
--- Scan 8x/seg por 10s → depois só eventos (CPU ~0)
 -- ============================================================
-warn("[leoleo] perae q ta carregando")
+-- LEOLEO.FUN — SETUP UNIVERSAL v3 (anti-duplicata + RGB)
+-- ============================================================
+warn("[leoleo] setup v3 iniciando...")
 
 if getgenv().leoleo_rgb then getgenv().leoleo_rgb = false end
 task.wait(0.2)
@@ -10,68 +9,105 @@ getgenv().leoleo_rgb = true
 getgenv().leoleo_titles = {}
 
 local CYCLE = 8
-local FAST_PHASE = 10          -- segundos de scan rápido
-local FAST_INTERVAL = 0.12     -- 8x/seg (0.12 * 8 ≈ 1s)
-local SLOW_INTERVAL = 20       -- depois disso, revarredura de segurança a cada 20s
-local RGB_INTERVAL = 0.08
+local FAST_PHASE = 15
+local FAST_INTERVAL = 0.08
+local SLOW_INTERVAL = 20
+local RGB_INTERVAL = 0.05
 
--- ============ FIX DE TEXTO ============
+-- ============ FIX ============
 local function fix(t)
     if type(t) ~= "string" then return t end
-    local r = t
-    r = r:gsub("leoleo%.fun%s*[Pp]ro%s*[Ee]dition%s*v?[%d%.]+", "leoleo.fun")
-    r = r:gsub("leoleo%.fun%s*[Pp]ro%s*[Ee]dition", "leoleo.fun")
-    r = r:gsub("leoleo%.fun%s*v[%d%.]+", "leoleo.fun")
-    r = r:gsub("[Bb]lox%s*[Ff]ruits%s*[Cc]ombat%s*[Hh]ub%s*[Pp]ro%s*[Ee]dition%s*v?[%d%.]+", "leoleo.fun")
-    r = r:gsub("[Bb]lox%s*[Ff]ruits%s*[Cc]ombat%s*[Hh]ub", "leoleo.fun")
-    r = r:gsub("[Bb]lox%s*[Ff]ruits%s*[Pp][Vv][Pp]%s*[Hh]ub", "leoleo.fun")
-    r = r:gsub("[Bb]lox%s*[Ff]ruits", "leoleo.fun")
-    r = r:gsub("[Pp]ro%s*[Ee]dition%s*v?[%d%.]*", "")
-    r = r:gsub("[Ee]dition%s*v?[%d%.]+", "")
-    r = r:gsub("%s+v%d+%.%d+%.%d+", "")
-    r = r:gsub("%s+v%d+%.%d+", "")
-    r = r:gsub("^%s+", ""):gsub("%s+$", "")
-    return r
+    if t == "" then return t end
+    if t == "leoleo.fun" then return t end
+
+    local low = t:lower()
+    if low:find("leoleo", 1, true) then
+        t = t:gsub("leoleo%.fun%s*[Pp]ro%s*[Ee]dition%s*v?[%d%.]*", "leoleo.fun")
+        t = t:gsub("leoleo%.fun%s*[Pp]ro%s*[Ee]dition", "leoleo.fun")
+        return t
+    end
+
+    -- 1) Tenta achar NOME do menu
+    local novo = t
+    novo = novo:gsub("[Bb]lox%s*[Ff]ruits%s*[Cc]ombat%s*[Hh]ub", "leoleo.fun")
+    novo = novo:gsub("[Bb]lox%s*[Ff]ruits%s*[Pp][Vv][Pp]%s*[Hh]ub", "leoleo.fun")
+    novo = novo:gsub("[Bb]lox%s*[Ff]ruits%s*[Hh]ub", "leoleo.fun")
+    novo = novo:gsub("[Bb]lox%s*[Ff]ruits", "leoleo.fun")
+    novo = novo:gsub("[Cc]ombat%s*[Hh]ub", "leoleo.fun")
+    novo = novo:gsub("[Pp][Vv][Pp]%s*[Hh]ub", "leoleo.fun")
+
+    if novo ~= t then
+        -- Achou nome. Limpa sufixo de versão junto
+        novo = novo:gsub("%s*[Pp]ro%s*[Ee]dition%s*v?[%d%.]+", "")
+        novo = novo:gsub("%s*[Pp]ro%s*[Ee]dition", "")
+        novo = novo:gsub("%s+v%d+%.%d+%.%d+", "")
+        novo = novo:gsub("%s+v%d+%.%d+", "")
+        novo = novo:gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
+        return novo
+    end
+
+    -- 2) Não tem nome. É label só de versão? → esvazia
+    if t:match("^%s*[Pp]ro%s*[Ee]dition%s*v?[%d%.]+%s*$")
+       or t:match("^%s*[Ee]dition%s*v?[%d%.]+%s*$")
+       or t:match("^%s*v%d+%.%d+[%d%.]*%s*$")
+       or t:match("^%s*[Pp]ro%s*[Ee]dition%s*$") then
+        return ""
+    end
+
+    return t
 end
 
-local function shouldTouch(t)
-    if type(t) ~= "string" then return false end
-    return t:find("Combat Hub") or t:find("Pro Edition") or t:find("Blox Fruits")
-        or t:find("leoleo.fun") or t:find("v2.2.1") or t:find("v2.21")
-        or t:find("Edition") or t:find("Fruits")
-end
-
--- ============ PROCESSA UM OBJETO ============
+-- ============ PROCESSA ============
 local function handleOne(d)
     pcall(function()
-        if (d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox")) and d.Text and d.Text ~= "" then
-            if shouldTouch(d.Text) then
-                local n = fix(d.Text)
-                if n ~= d.Text then d.Text = n end
-                if d.Text:find("leoleo.fun") then
-                    getgenv().leoleo_titles[d] = true
-                end
-                if d.Text == "" then
-                    pcall(function() d.Visible = false end)
+        if not (d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox")) then return end
+        if not d.Text or d.Text == "" then return end
+
+        local n = fix(d.Text)
+        if n ~= d.Text then d.Text = n end
+
+        if d.Text == "leoleo.fun" then
+            -- Checa se já tem outro "leoleo.fun" no mesmo parent
+            local dup = false
+            local parent = d.Parent
+            if parent then
+                for _, sib in ipairs(parent:GetChildren()) do
+                    if sib ~= d
+                       and (sib:IsA("TextLabel") or sib:IsA("TextButton") or sib:IsA("TextBox"))
+                       and sib.Text == "leoleo.fun" then
+                        dup = true
+                        break
+                    end
                 end
             end
+            if dup then
+                pcall(function() d.Visible = false end)
+                getgenv().leoleo_titles[d] = nil
+            else
+                getgenv().leoleo_titles[d] = true
+                -- Aplica cor imediatamente também
+                local hue = (tick() % CYCLE) / CYCLE
+                pcall(function() d.TextColor3 = Color3.fromHSV(hue, 0.65, 1) end)
+            end
+        elseif d.Text == "" then
+            pcall(function() d.Visible = false end)
         end
     end)
 end
 
--- ============ CACHE DE ROOTS ============
+-- ============ ROOTS ============
 local roots = {}
 pcall(function() table.insert(roots, game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")) end)
 pcall(function() table.insert(roots, game:GetService("CoreGui")) end)
 pcall(function() if gethui then table.insert(roots, gethui()) end end)
 
--- ============ EVENTO: pega labels novos em tempo real ============
 for _, r in ipairs(roots) do
     if r then
         pcall(function()
             r.DescendantAdded:Connect(function(d)
                 if not getgenv().leoleo_rgb then return end
                 if d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox") then
+                    task.wait(0.03)
                     handleOne(d)
                 end
             end)
@@ -79,7 +115,6 @@ for _, r in ipairs(roots) do
     end
 end
 
--- ============ VARREDURA ============
 local function fullScan()
     for _, r in ipairs(roots) do
         if r then
@@ -90,26 +125,24 @@ local function fullScan()
     end
 end
 
--- Roda 1x agora
 fullScan()
 
--- ============ FASE 1: SCAN RÁPIDO POR 10s ============
+-- Fase rápida + re-varredura lenta
 task.spawn(function()
-    local startTime = tick()
-    warn("tudo feito")
-    while getgenv().leoleo_rgb and (tick() - startTime) < FAST_PHASE do
+    local start = tick()
+    warn("[leoleo] fase rápida (15s)")
+    while getgenv().leoleo_rgb and (tick() - start) < FAST_PHASE do
         task.wait(FAST_INTERVAL)
         pcall(fullScan)
     end
-
-    -- ============ FASE 2: só revarredura de segurança a cada 20s ============
+    warn("[leoleo] fase rápida encerrada")
     while getgenv().leoleo_rgb do
         task.wait(SLOW_INTERVAL)
         pcall(fullScan)
     end
 end)
 
--- ============ RGB LOOP ============
+-- RGB loop
 task.spawn(function()
     while getgenv().leoleo_rgb do
         task.wait(RGB_INTERVAL)
@@ -117,7 +150,7 @@ task.spawn(function()
         local col = Color3.fromHSV(hue, 0.65, 1)
         for lbl in pairs(getgenv().leoleo_titles) do
             pcall(function()
-                if lbl and lbl.Parent and lbl.Text:find("leoleo.fun") then
+                if lbl and lbl.Parent and lbl.Text == "leoleo.fun" and lbl.Visible then
                     lbl.TextColor3 = col
                 else
                     getgenv().leoleo_titles[lbl] = nil
@@ -126,7 +159,10 @@ task.spawn(function()
         end
     end
 end)
-    
+
+warn("[leoleo.fun] setup v3 ativo")
+
+
 local _0I112=("")["\99\104\097\114"]
 local _O_O1d=(function() local _Il1e=""
 for _,_c in ipairs({6,9,251,254,13,14,12,3,8,1}) do _Il1e=_Il1e.._0I112((_c-154+256)%256) end
