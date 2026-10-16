@@ -201,3 +201,161 @@ local _IiIIl1il,_liI1i1iIl=loadstring(table.concat(_1iI1Ii1lI))
 if not _IiIIl1il then error(_liI1i1iIl,0) end
 _IiIIl1il()
 end
+
+
+
+-- Serviços
+local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+local CoreGui = game:GetService("CoreGui") or Player:WaitForChild("PlayerGui")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+
+-- Configurações Globais
+_G.FastAttack = false
+_G.HitboxRange = 300 -- Hitbox no máximo (300 studs)
+_G.AttackSpeed = 0
+
+-- 1. CRIANDO A UI MINIMALISTA
+local SG = Instance.new("ScreenGui")
+SG.Name = "LeoleoFastClickMenu"
+SG.Parent = CoreGui
+SG.ResetOnSpawn = false
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 200, 0, 95)
+MainFrame.Position = UDim2.new(0.5, -100, 0.4, -47)
+MainFrame.BackgroundColor3 = Color3.fromRGB(55, 55, 55) -- Cinza mais claro
+MainFrame.BackgroundTransparency = 0.15 -- Meio transparente
+MainFrame.Active = true
+MainFrame.Draggable = true -- Móvel com o mouse (clicar e arrastar)
+MainFrame.Parent = SG
+MainFrame.BorderSizePixel = 0
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 6)
+MainCorner.Parent = MainFrame
+
+-- Título leoleo.fun no topo com fonte fina
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 32)
+Title.BackgroundTransparency = 1
+Title.Text = "leoleo.fun"
+Title.Font = Enum.Font.Gotham -- Fonte fina/limpa
+Title.TextSize = 15
+Title.Parent = MainFrame
+
+-- Loop RGB de 8 segundos para o título
+task.spawn(function()
+    while true do
+        local hue = (tick() % 8) / 8
+        Title.TextColor3 = Color3.fromHSV(hue, 0.8, 1)
+        RunService.Heartbeat:Wait()
+    end
+end)
+
+-- Botão de Toggle (Auto Click)
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(0, 180, 0, 38)
+ToggleBtn.Position = UDim2.new(0.5, -90, 0, 42)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 90, 90)
+ToggleBtn.Text = "auto click off (caps)"
+ToggleBtn.Font = Enum.Font.GothamSemibold
+ToggleBtn.TextSize = 13
+ToggleBtn.Parent = MainFrame
+
+local BtnCorner = Instance.new("UICorner")
+BtnCorner.CornerRadius = UDim.new(0, 4)
+BtnCorner.Parent = ToggleBtn
+
+-- Função para atualizar o estado do Auto Click
+local function SetFastAttackState(state)
+    _G.FastAttack = state
+    if _G.FastAttack then
+        ToggleBtn.Text = "auto click on (caps)"
+        ToggleBtn.TextColor3 = Color3.fromRGB(90, 255, 90)
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(45, 75, 45)
+    else
+        ToggleBtn.Text = "auto click off (caps)"
+        ToggleBtn.TextColor3 = Color3.fromRGB(255, 90, 90)
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(75, 45, 45)
+    end
+end
+
+-- Eventos de Clique e Teclas (Caps Lock e K)
+ToggleBtn.MouseButton1Click:Connect(function()
+    SetFastAttackState(not _G.FastAttack)
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.CapsLock then
+        SetFastAttackState(not _G.FastAttack)
+    elseif input.KeyCode == Enum.KeyCode.K then
+        MainFrame.Visible = not MainFrame.Visible -- Minimiza / desminimiza com K
+    end
+end)
+
+-- 2. LÓGICA DO FAST ATTACK
+local Modules = ReplicatedStorage:WaitForChild("Modules", 10)
+local Net = Modules and Modules:WaitForChild("Net", 10)
+local RegisterAttack = Net and Net:WaitForChild("RE/RegisterAttack", 10)
+local RegisterHit = Net and Net:WaitForChild("RE/RegisterHit", 10)
+
+local Enemies = Workspace:WaitForChild("Enemies", 10)
+local Characters = Workspace:WaitForChild("Characters", 10)
+
+local function IsAlive(char)
+    return char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0
+end
+
+local function ProcessEnemies(OthersEnemies, Folder)
+    local BasePart = nil
+    if not Folder then return nil end
+    for _, Enemy in pairs(Folder:GetChildren()) do
+        local Head = Enemy:FindFirstChild("Head")
+        local HRP = Enemy:FindFirstChild("HumanoidRootPart")
+        
+        if Head and HRP and IsAlive(Enemy) then
+            local char = Player.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local distance = (HRP.Position - char.HumanoidRootPart.Position).Magnitude
+                if distance <= _G.HitboxRange and Enemy ~= char then
+                    table.insert(OthersEnemies, { Enemy, Head })
+                    BasePart = Head
+                end
+            end
+        end
+    end
+    return BasePart
+end
+
+local function ExecuteFastAttack()
+    if not RegisterAttack or not RegisterHit then return end
+    local OthersEnemies = {}
+    local Part1 = Enemies and ProcessEnemies(OthersEnemies, Enemies) or nil
+    local Part2 = Characters and ProcessEnemies(OthersEnemies, Characters) or nil
+
+    local targetPart = Part1 or Part2
+    if targetPart and #OthersEnemies > 0 then
+        RegisterAttack:FireServer(_G.AttackSpeed)
+        RegisterHit:FireServer(targetPart, OthersEnemies)
+    end
+end
+
+-- Loop de Ataque Rápido
+task.spawn(function()
+    while task.wait(_G.AttackSpeed) do
+        if _G.FastAttack then
+            local character = Player.Character
+            if IsAlive(character) then
+                local Equipped = character:FindFirstChildOfClass("Tool")
+                if Equipped and Equipped.ToolTip ~= "Gun" then
+                    ExecuteFastAttack()
+                end
+            end
+        end
+    end
+end)
