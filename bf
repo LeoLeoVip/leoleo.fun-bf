@@ -215,7 +215,7 @@ local UserInputService = game:GetService("UserInputService")
 
 -- Configurações Globais
 _G.FastAttack = false
-_G.HitboxRange = 300 -- Hitbox no máximo (300 studs)
+_G.HitboxRange = 90 -- Hitbox no máximo (300 studs)
 _G.AttackSpeed = 0
 
 -- 1. CRIANDO A UI MINIMALISTA
